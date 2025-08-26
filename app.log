@@ -1,0 +1,1 @@
+2025-08-26 12:53:30,932 - INFO - Prediction successful for input: {'Make': 'Toyota', 'Model': 'Camry', 'Year': 2020, 'Engine_Size': 2.5, 'Mileage': 30000.0, 'Fuel_Type': 'Petrol', 'Transmission': 'Automatic'}
