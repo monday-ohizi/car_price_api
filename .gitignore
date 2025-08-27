@@ -27,12 +27,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# ML / Data Science Specific
-
-# Model files (don’t push trained models to GitHub)
-*.pkl
-*.joblib
-
 # Large datasets (optional: if you want to keep small sample csvs, remove *.csv)
 *.csv
 *.tsv
