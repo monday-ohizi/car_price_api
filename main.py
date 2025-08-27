@@ -8,13 +8,12 @@ from car_feature_engineering import add_features
 from sklearn.preprocessing import FunctionTransformer
 
 
-# ✅ Setup logging
+# Setup logging
 logging.basicConfig(
     filename="app.log",           # log file name
     level=logging.INFO,           # log level (INFO, WARNING, ERROR)
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
 
 # Use it in a transformer
 feature_creator = FunctionTransformer(add_features, validate=False)
@@ -22,11 +21,19 @@ feature_creator = FunctionTransformer(add_features, validate=False)
 # Load pipeline (includes preprocessing + model)
 pipeline = joblib.load("car_price_prediction.pkl")
 
-# FastAPI app
+# Versioned API
+app_v1 = FastAPI(
+    title="Car Price Prediction API v1",
+    version="1.0"
+)
+
+# Main API (with versioning + root endpoints)
 app = FastAPI(title="Car Price Prediction API")
 
+# Mount v1 under /v1
+app.mount("/v1", app_v1)
 
-# ✅ Input schema with validation
+# Input schema with validation
 class CarFeatures(BaseModel):
     Make: str = Field(..., description="Car manufacturer (e.g., Toyota, Ford)")
     Model: str = Field(..., description="Car model (e.g., Corolla, Civic)")
@@ -36,7 +43,6 @@ class CarFeatures(BaseModel):
     Fuel_Type: str = Field(..., description="Fuel type (e.g., Petrol, Diesel, Hybrid, Electric)")
     Transmission: str = Field(..., description="Transmission type (Manual or Automatic)")
 
-    # Restrict fuel type values
     @validator("Fuel_Type")
     def fuel_type_check(cls, v):
         allowed = ["Petrol", "Diesel", "Hybrid", "Electric"]
@@ -44,7 +50,6 @@ class CarFeatures(BaseModel):
             raise ValueError(f"Fuel_Type must be one of {allowed}")
         return v
 
-    # Restrict transmission values
     @validator("Transmission")
     def transmission_check(cls, v):
         allowed = ["Manual", "Automatic"]
@@ -52,49 +57,60 @@ class CarFeatures(BaseModel):
             raise ValueError(f"Transmission must be one of {allowed}")
         return v
 
-
-# ✅ Root endpoint
+# Root + Health endpoints
 @app.get("/")
 def home():
     logging.info("Root endpoint accessed")
-    return {"message": "Welcome to Car Price Prediction API!"}
-    
-    
+    return {
+        "message": "Welcome to Car Price Prediction API!",
+        "available_versions": ["/predict (default)", "/v1/predict"]
+    }
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "message": "API is running"}
 
+# Prediction Endpoint (Shared)
+def make_prediction(features: CarFeatures):
+    input_dict = features.dict()
 
-# ✅ Prediction endpoint
+    # Match training column names
+    input_data = pd.DataFrame([{
+        "Make": input_dict["Make"],
+        "Model": input_dict["Model"],
+        "Year": input_dict["Year"],
+        "Engine Size": input_dict["Engine_Size"],
+        "Mileage": input_dict["Mileage"],
+        "Fuel Type": input_dict["Fuel_Type"],
+        "Transmission": input_dict["Transmission"]
+    }])
+
+    prediction = pipeline.predict(input_data)
+    logging.info(f"Prediction successful for input: {input_dict}")
+    return {"predicted_price": round(float(prediction[0]), 2)}
+
+
+# Default /predict (no version)
 @app.post("/predict")
-def predict_price(features: CarFeatures):
+def predict_price_default(features: CarFeatures):
     try:
-        # Convert input to DataFrame
-        input_dict = features.dict()
-
-        # ✅ Rename keys to match training dataset column names
-        input_data = pd.DataFrame([{
-            "Make": input_dict["Make"],
-            "Model": input_dict["Model"],
-            "Year": input_dict["Year"],
-            "Engine Size": input_dict["Engine_Size"],   # match training column
-            "Mileage": input_dict["Mileage"],
-            "Fuel Type": input_dict["Fuel_Type"],       # match training column
-            "Transmission": input_dict["Transmission"]
-        }])
-
-        # Pipeline handles preprocessing internally
-        prediction = pipeline.predict(input_data)
-
-        logging.info(f"Prediction successful for input: {input_dict}")
-        return {"predicted_price": round(float(prediction[0]), 2)}
-
+        return make_prediction(features)
     except Exception as e:
-        logging.error(f"Prediction failed for input {features.dict()} - Error: {str(e)}")
+        logging.error(f"Prediction failed: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
 
 
-# ✅ Global error handler (safety net)
+# Versioned /v1/predict
+@app_v1.post("/predict")
+def predict_price_v1(features: CarFeatures):
+    try:
+        return make_prediction(features)
+    except Exception as e:
+        logging.error(f"[v1] Prediction failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"[v1] Prediction failed: {str(e)}")
+
+
+# Global Error Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logging.critical(f"Unexpected error at {request.url} - {str(exc)}")
