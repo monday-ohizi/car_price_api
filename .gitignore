@@ -1,0 +1,50 @@
+# Python & FastAPI Git Ignore
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.env/
+ENV/
+env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Log files
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VS Code / IDE settings
+.vscode/
+.idea/
+
+# ML / Data Science Specific
+
+# Model files (don’t push trained models to GitHub)
+*.pkl
+*.joblib
+
+# Large datasets (optional: if you want to keep small sample csvs, remove *.csv)
+*.csv
+*.tsv
+*.xls
+*.xlsx
+
+# Deployment
+
+# Uvicorn / Gunicorn pid or logs
+*.pid
+
+# Build / dist
+build/
+dist/
+*.egg-info/
